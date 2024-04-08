@@ -1,6 +1,6 @@
 # Nacelle Ingest Worker Example
 
-This repo is an example cloudflare worker showcasing how to fetch product data from one source and push it into Nacelle's index.
+This repo is an example cloudflare worker showcasing how to fetch product data from one source and push it into Nacelle's index with a scheduled cron trigger.
 
 ## Installation
 
