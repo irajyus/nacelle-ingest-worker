@@ -11,8 +11,11 @@ crons = ["* * * * *"] # * * * * * = run every minute
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Note: Use secrets to store sensitive data.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-# [vars]
-# MY_VARIABLE = "production_value"
+[vars]
+MAGENTO_ENDPOINT = ""
+NACELLE_SPACE_ID = ""
+NACELLE_INGEST_TOKEN = ""
+NACELLE_CUSTOM_SOURCE_ID= ""
 
 # Bind the Workers AI model catalog. Run machine learning models, powered by serverless GPUs, on Cloudflare’s global network
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#workers-ai

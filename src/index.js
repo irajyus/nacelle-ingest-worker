@@ -13,18 +13,123 @@
  */
 
 export default {
-	// The scheduled handler is invoked at the interval set in our wrangler.toml's
-	// [[triggers]] configuration.
 	async scheduled(event, env, ctx) {
-		// A Cron Trigger can make requests to other endpoints on the Internet,
-		// publish to a Queue, query a D1 Database, and much more.
-		//
-		// We'll keep it simple and make an API call to a Cloudflare API:
-		let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
-		let wasSuccessful = resp.ok ? 'success' : 'fail';
+		try {
+			const magentoEndpoint = env.MAGENTO_ENDPOINT;
+			//Using the Magento REST API to fetch 20 products (defined in the Endpoint URL as query params)
+			let magentoProductsResponse = await fetch(magentoEndpoint, {
+				method: 'GET',
+				headers: {
+					Authorization: 'Bearer z8nnln30fd5bipe6iuu0au5otfb6osst',
+				},
+			});
 
-		// You could store this result in KV, write to a D1 Database, or publish to a Queue.
-		// In this template, we'll just log the result:
-		console.log(`trigger fired at ${event.cron}: ${wasSuccessful}`);
+			const body = await magentoProductsResponse.json();
+			const magentoProducts = body.items;
+
+			let products = [];
+			let productContents = [];
+			let variants = [];
+			let variantContents = [];
+
+			for (const product in magentoProducts) {
+				const productId = magentoProducts[product].sku;
+				const title = magentoProducts[product].name;
+				const price = magentoProducts[product].price;
+				const handle = magentoProducts[product].custom_attributes[3].value;
+				const sku = magentoProducts[product].sku;
+				const description = magentoProducts[product].custom_attributes[7].value;
+				const imageFile = magentoProducts[product].custom_attributes[0].value;
+				const imageSource = `https://3da1c38415.nxcli.io/media/catalog/product${imageFile}`;
+
+				// Build Product
+				products.push({
+					sourceEntryId: productId,
+					availableForSale: true,
+				});
+				// Build Product Content
+				productContents.push({
+					sourceEntryId: productId,
+					sourceProductId: productId,
+					locale: 'en-US',
+					handle: handle,
+					title: title,
+					description: description,
+					featuredMedia: {
+						type: 'IMAGE',
+						src: imageSource,
+						thumbnailSrc: imageSource,
+						altText: '',
+					},
+				});
+
+				// Build Variant
+				variants.push({
+					sourceEntryId: productId,
+					sourceProductId: productId,
+					sku: sku,
+					price: price,
+					availableForSale: true,
+				});
+
+				// Build Variant Content
+				variantContents.push({
+					sourceEntryId: productId,
+					locale: 'en-US',
+					sourceProductId: productId,
+					sourceVariantId: productId,
+					title: title,
+					description: description,
+				});
+			}
+
+			const productResponse = await nacelleIngestProducts(products);
+			console.log('productResponse', productResponse);
+			const productContentResponse = await nacelleIngestProductContent(productContents);
+			console.log('productContentResponse', productContentResponse);
+			const variantResponse = await nacelleIngestVariants(variants);
+			console.log('variantResponse', variantResponse);
+			const variantContentResponse = await nacelleIngestVariantContent(variantContents);
+			console.log('variantContentResponse', variantContentResponse);
+		} catch (err) {
+			console.log(err.message);
+		}
+		//Function to reuse the Nacelle API/different endpoints to ingest data
+		async function nacelleFetch(payload, endpoint) {
+			const options = {
+				method: 'PUT',
+				body: JSON.stringify({
+					entries: payload,
+				}),
+				headers: {
+					'Content-Type': 'application/json',
+					'x-nacelle-space-id': env.NACELLE_SPACE_ID,
+					'x-nacelle-source-id': env.NACELLE_CUSTOM_SOURCE_ID,
+					'x-nacelle-ingest-token': env.NACELLE_INGEST_TOKEN,
+				},
+			};
+
+			return fetch(endpoint, options);
+		}
+
+		async function nacelleIngestProducts(products) {
+			const endpoint = 'https://ingest.api.nacelle.com/v1/product';
+			return nacelleFetch(products, endpoint);
+		}
+
+		async function nacelleIngestProductContent(productContents) {
+			const endpoint = 'https://ingest.api.nacelle.com/v1/product-content';
+			return nacelleFetch(productContents, endpoint);
+		}
+
+		async function nacelleIngestVariants(variants) {
+			const endpoint = 'https://ingest.api.nacelle.com/v1/variant';
+			return nacelleFetch(variants, endpoint);
+		}
+
+		async function nacelleIngestVariantContent(variantContents) {
+			const endpoint = 'https://ingest.api.nacelle.com/v1/variant-content';
+			return nacelleFetch(variantContents, endpoint);
+		}
 	},
 };
